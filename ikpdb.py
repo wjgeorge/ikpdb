@@ -604,39 +604,61 @@ class IKPdb(object):
         return c_file_name
 
     def lookup_module(self, file_name):
-        """ translate a (possibly incomplete) file or module name into an 
+        """Translate a (possibly incomplete) file or module name into an 
         absolute file name.
         """
         _logger.p_debug("lookup_module(%s) with os.getcwd()=>%s", file_name, os.getcwd())
         
         if os.path.isabs(file_name) and os.path.exists(file_name):
+            _logger.p_debug("  => found absolute path: '%s'", file_name)
             return file_name
-            
-        # Can we find file relatively to launch script
-        f = os.path.join(sys.path[0], file_name)  
-        if os.path.exists(f) and self.canonic(f) == self.mainpyfile:
-            return f
             
         # Can we find the file relatively to launch CWD (useful with buildout)
         f = os.path.join(self._CWD, file_name)  
         if  os.path.exists(f):
+            _logger.p_debug("  => found path relative to CWD set at launch: '%s'", f)
             return f
 
+        # Can we find file relatively to launch script
+        f = os.path.join(sys.path[0], file_name)  
+        if os.path.exists(f) and self.canonic(f) == self.mainpyfile:
+            _logger.p_debug("  => found path relative to launch script: '%s'", f)
+            return f
+            
         # Try as an absolute path after adding .py extension 
         root, ext = os.path.splitext(file_name)
         if ext == '':
-            file_name = file_name + '.py'
-        if os.path.isabs(file_name):
-            return file_name
+            f = file_name + '.py'
+        if os.path.isabs(f):
+            _logger.p_debug("  => found absolute path after adding .py extension: '%s'", f)
+            return f
         
         # Can we find the file in system path
         for dir_name in sys.path:
             while os.path.islink(dir_name):
                 dir_name = os.readlink(dir_name)
-            full_name = os.path.join(dir_name, file_name)
-            if os.path.exists(full_name):
-                return full_name
+            f = os.path.join(dir_name, file_name)
+            if os.path.exists(f):
+                _logger.p_debug("  => found path in sys.path: '%s'", f)
+                return f
         return None
+
+    def normalize_path_out(self, path):
+        """Normalizes path sent to client
+        :param path: path to normalize
+        :return: normalized path
+        """
+        MODE_ABSOLUTE = True
+        if MODE_ABSOLUTE:
+            _logger.p_info("iiiiiiiiiiiiiiiiiiiiiiiii", path)
+            return path
+        else:  # Relative mode
+            if path.startswith(self._CWD):
+                normalized_path = path[len(self._CWD):]
+            else:
+                normalized_path = path
+        return normalized_path
+
 
     def object_properties_count(self, o):
         """ returns the number of user browsable properties of an object. """
@@ -790,13 +812,17 @@ class IKPdb(object):
             # Update local variables (User can use watch expressions for globals)
             locals_vars_list = self.extract_object_properties(frame_browser.f_locals,
                                                               limit_size=True)
+            
+            # normalize path sent to Cloud9
+            print "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii file_path='%s'" % frame_browser.f_code.co_filename
+            file_path = self.normalize_path_out(frame_browser.f_code.co_filename)
 
             frame_name = "%s() [%s]" % (frame_browser.f_code.co_name, current_tread.name,)
             remote_frame = {
                 'id': id(frame_browser),
                 'name': frame_name,
                 'line_number': frame_browser.f_lineno,  # Warning 1 based
-                'file_path': frame_browser.f_code.co_filename, 
+                'file_path': file_path,
                 'thread': id(current_tread),
                 'f_locals': locals_vars_list
             }
