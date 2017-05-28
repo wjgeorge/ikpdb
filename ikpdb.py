@@ -607,6 +607,10 @@ class IKPdb(object):
         """
         _logger.p_debug("normalize_path_in(%s) with os.getcwd()=>%s", file_name, os.getcwd())
         
+        # remove client CWD from file_path
+        if file_name.startswith(self._CLIENT_CWD):
+            file_name = file_file[len(self._CLIENT_CWD):]
+        
         if os.path.isabs(file_name) and os.path.exists(file_name):
             _logger.p_debug("  => found absolute path: '%s'", file_name)
             return file_name
@@ -1713,7 +1717,7 @@ def main():
         _logger.g_debug("  Working Directory forced to: '%s'", 
                         cmd_line_args.IKPDB_WORKING_DIRECTORY)
     if cmd_line_args.IKPDB_CLIENT_WORKING_DIRECTORY:
-        _logger.g_debug("  CLIENT Working Directory forced to: '%s'", 
+        _logger.g_debug("  CLIENT Working Directory set to: '%s'", 
                         cmd_line_args.IKPDB_CLIENT_WORKING_DIRECTORY)
 
     if not sys.argv[0:]:
