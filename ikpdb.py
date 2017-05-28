@@ -1359,9 +1359,10 @@ class IKPdb(object):
 
                 c_file_name = self.normalize_path_in(file_name)
                 if not c_file_name:
-                    _logger.g_error("setBreakpoint error: Failed to find file '%s'", file_name)
+                    err = "Failed to find file '%s'", file_name
+                    _logger.g_error("setBreakpoint error: %s", err)
                     msg = "IKPdb error: Failed to set a breakpoint at %s:%s "\
-                          "(Failed to find file '%s')." % (file_name, line_number, err, file_name)
+                          "(%s)." % (file_name, line_number, err)
                     error_messages = [msg]
                     result = {}
                     command_exec_status = 'error'
