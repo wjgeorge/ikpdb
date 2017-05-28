@@ -605,7 +605,7 @@ class IKPdb(object):
         """Translate a (possibly incomplete) file or module name received from debugging client
         into an absolute file name.
         """
-        _logger.p_debug("normalize_path_in(%s) with os.getcwd()=>%s", file_name, os.getcwd())
+        _logger.p_debug("normalize_path_in(%s) with os.getcwd()=>%s", client_file_name, os.getcwd())
         
         # remove client CWD from file_path
         if client_file_name.startswith(self._CLIENT_CWD):
