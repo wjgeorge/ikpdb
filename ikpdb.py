@@ -601,15 +601,17 @@ class IKPdb(object):
             self.file_name_cache[file_name] = c_file_name
         return c_file_name
 
-    def normalize_path_in(self, file_name):
+    def normalize_path_in(self, client_file_name):
         """Translate a (possibly incomplete) file or module name received from debugging client
         into an absolute file name.
         """
         _logger.p_debug("normalize_path_in(%s) with os.getcwd()=>%s", file_name, os.getcwd())
         
         # remove client CWD from file_path
-        if file_name.startswith(self._CLIENT_CWD):
-            file_name = file_file[len(self._CLIENT_CWD):]
+        if client_file_name.startswith(self._CLIENT_CWD):
+            file_name = client_file_name[len(self._CLIENT_CWD):]
+        else:
+            file_name = client_file_name
         
         if os.path.isabs(file_name) and os.path.exists(file_name):
             _logger.p_debug("  => found absolute path: '%s'", file_name)
