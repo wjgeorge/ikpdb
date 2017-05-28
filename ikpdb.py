@@ -549,7 +549,8 @@ class IKPdb(object):
     Take note that, right now, IKPdb is used as singleton.
     """
     
-    def __init__(self, skip=None, stop_at_first_statement=False, working_directory=None):
+    def __init__(self, skip=None, stop_at_first_statement=False, working_directory=None, 
+                 client_working_directory=None):
         # TODO: manage skip
         self.skip = set(skip) if skip else None
         
@@ -557,7 +558,7 @@ class IKPdb(object):
         self.file_name_cache = {}        
         
         self._CWD = working_directory or os.getcwd()
-        self._CLIENT_CWD = None  # or a path for remote
+        self._CLIENT_CWD = client_working_directory
         
         self.mainpyfile = ''
         self._active_breakpoint_lock = threading.Lock()
@@ -1355,7 +1356,9 @@ class IKPdb(object):
                                 condition,
                                 enabled,
                                 os.getcwd())
+                
                 error_messages = []
+                result = {}
 
                 c_file_name = self.normalize_path_in(file_name)
                 if not c_file_name:
@@ -1364,7 +1367,6 @@ class IKPdb(object):
                     msg = "IKPdb error: Failed to set a breakpoint at %s:%s "\
                           "(%s)." % (file_name, line_number, err)
                     error_messages = [msg]
-                    result = {}
                     command_exec_status = 'error'
                 else:                        
                     err, bp_number = self.set_breakpoint(c_file_name, 
@@ -1376,7 +1378,6 @@ class IKPdb(object):
                         msg = "IKPdb error: Failed to set a breakpoint at %s:%s "\
                               "(%s)." % (file_name, line_number, err,)
                         error_messages = [msg]
-                        result = {}
                         command_exec_status = 'error'
                     else:
                         result = {'breakpoint_number': bp_number}
@@ -1686,6 +1687,11 @@ def main():
                         dest="IKPDB_WORKING_DIRECTORY",
                         default=None,
                         help="Allows to force debugger's Current Working Directory (CWD)")
+    parser.add_argument("-ik_ccwd", "--ikpdb-client-working-directory",
+                        dest="IKPDB_CLIENT_WORKING_DIRECTORY",
+                        default=None,
+                        help="Allows to force debugger's _client_ Current Working Directory. Useful "
+                             "for remote debugging.")
     parser.add_argument("script_command_args",
                         metavar="scriptfile [args]",
                         help="Debugged script followed by all his args.",
@@ -1706,8 +1712,10 @@ def main():
     if cmd_line_args.IKPDB_WORKING_DIRECTORY:
         _logger.g_debug("  Working Directory forced to: '%s'", 
                         cmd_line_args.IKPDB_WORKING_DIRECTORY)
-        
-    
+    if cmd_line_args.IKPDB_CLIENT_WORKING_DIRECTORY:
+        _logger.g_debug("  CLIENT Working Directory forced to: '%s'", 
+                        cmd_line_args.IKPDB_CLIENT_WORKING_DIRECTORY)
+
     if not sys.argv[0:]:
         print "Error: scriptfile argument is required"
         sys.exit(2)
@@ -1754,7 +1762,8 @@ def main():
     
     global ikpdb
     ikpdb = IKPdb(stop_at_first_statement=cmd_line_args.IKPDB_STOP_AT_ENTRY,
-                  working_directory=cmd_line_args.IKPDB_WORKING_DIRECTORY)
+                  working_directory=cmd_line_args.IKPDB_WORKING_DIRECTORY,
+                  client_working_directory=cmd_line_args.IKPDB_CLIENT_WORKING_DIRECTORY)
 
     if cmd_line_args.IKPDB_SEND_WELCOME_MESSAGE:  
         remote_client.send("start", info_messages=["Welcome to", "IKPdb", __version__])
