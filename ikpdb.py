@@ -558,7 +558,7 @@ class IKPdb(object):
         self.file_name_cache = {}        
         
         self._CWD = working_directory or os.getcwd()
-        self._CLIENT_CWD = client_working_directory
+        self._CLIENT_CWD = client_working_directory or ''
         
         self.mainpyfile = ''
         self._active_breakpoint_lock = threading.Lock()
