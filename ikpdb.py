@@ -600,11 +600,11 @@ class IKPdb(object):
             self.file_name_cache[file_name] = c_file_name
         return c_file_name
 
-    def lookup_module(self, file_name):
-        """Translate a (possibly incomplete) file or module name into an 
-        absolute file name.
+    def normalize_path_in(self, file_name):
+        """Translate a (possibly incomplete) file or module name received from debugging client
+        into an absolute file name.
         """
-        _logger.p_debug("lookup_module(%s) with os.getcwd()=>%s", file_name, os.getcwd())
+        _logger.p_debug("normalize_path_in(%s) with os.getcwd()=>%s", file_name, os.getcwd())
         
         if os.path.isabs(file_name) and os.path.exists(file_name):
             _logger.p_debug("  => found absolute path: '%s'", file_name)
@@ -613,7 +613,7 @@ class IKPdb(object):
         # Can we find the file relatively to launch CWD (useful with buildout)
         f = os.path.join(self._CWD, file_name)  
         if  os.path.exists(f):
-            _logger.p_debug("  => found path relative to CWD set at launch: '%s'", f)
+            _logger.p_debug("  => found path relative to self._CWD: '%s'", f)
             return f
 
         # Can we find file relatively to launch script
@@ -808,9 +808,7 @@ class IKPdb(object):
             # Update local variables (User can use watch expressions for globals)
             locals_vars_list = self.extract_object_properties(frame_browser.f_locals,
                                                               limit_size=True)
-            
-            # normalize path sent to Cloud9
-            print "iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii file_path='%s'" % frame_browser.f_code.co_filename
+            # normalize path sent to debugging client
             file_path = self.normalize_path_out(frame_browser.f_code.co_filename)
 
             frame_name = "%s() [%s]" % (frame_browser.f_code.co_name, current_tread.name,)
@@ -1357,22 +1355,31 @@ class IKPdb(object):
                                 condition,
                                 enabled,
                                 os.getcwd())
-                c_file_name = self.lookup_module(file_name)
-                err, bp_number = self.set_breakpoint(c_file_name, 
-                                                     line_number, 
-                                                     condition=condition,
-                                                     enabled=enabled)
                 error_messages = []
-                if err:
-                    _logger.g_error("setBreakpoint error: %s", err)
+
+                c_file_name = self.normalize_path_in(file_name)
+                if not c_file_name:
+                    _logger.g_error("setBreakpoint error: Failed to find file '%s'", file_name)
                     msg = "IKPdb error: Failed to set a breakpoint at %s:%s "\
-                          "(%s)." % (file_name, line_number, err,)
+                          "(Failed to find file '%s')." % (file_name, line_number, err, file_name)
                     error_messages = [msg]
                     result = {}
                     command_exec_status = 'error'
-                else:
-                    result = {'breakpoint_number': bp_number}
-                    command_exec_status = 'ok'
+                else:                        
+                    err, bp_number = self.set_breakpoint(c_file_name, 
+                                                         line_number, 
+                                                         condition=condition,
+                                                         enabled=enabled)
+                    if err:
+                        _logger.g_error("setBreakpoint error: %s", err)
+                        msg = "IKPdb error: Failed to set a breakpoint at %s:%s "\
+                              "(%s)." % (file_name, line_number, err,)
+                        error_messages = [msg]
+                        result = {}
+                        command_exec_status = 'error'
+                    else:
+                        result = {'breakpoint_number': bp_number}
+                        command_exec_status = 'ok'
                 remote_client.reply(obj, result, 
                                     command_exec_status=command_exec_status,
                                     error_messages=error_messages)
