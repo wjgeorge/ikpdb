@@ -29,7 +29,7 @@ import cgi
 
 # For now ikpdb is a singleton
 ikpdb = None 
-__version__ = "1.0.1"
+__version__ = "1.0.2_cmo_path_mapping"
 
 ##
 # Logging System
@@ -79,9 +79,7 @@ class MetaIKPdbLogger(type):
 
 class IKPdbLogger(object):
     """ IKPdb implements it's own logging system to:
-
-    - avoid problem while debugging programs that reconfigure logging system 
-      wide.
+    - avoid problem while debugging programs that reconfigure logging system wide.
     - allow IKPdb debugging...
     """
     __metaclass__ = MetaIKPdbLogger
@@ -158,7 +156,6 @@ class IKPdbLogger(object):
             - `_logger` is a reference to the IKPdbLogger class
             - `x` is the `Execution` domain
             - `debug` is the logging level
-        
         """
         if not ikpdb_log_arg:
             return
@@ -260,8 +257,6 @@ class IKPdbConnectionHandler(object):
         :param exception: If debugger encounter an exception, this dict contains
                           2 keys: `type` and `info` (the later is the message).
         :type exception: dict
-
-        
         """
         with self._connection_lock:
             msg = self.encode({
@@ -562,6 +557,8 @@ class IKPdb(object):
         self.file_name_cache = {}        
         
         self._CWD = working_directory or os.getcwd()
+        self._CLIENT_CWD = None  # or a path for remote
+        
         self.mainpyfile = ''
         self._active_breakpoint_lock = threading.Lock()
         self._active_thread_lock = threading.Lock()
@@ -648,15 +645,14 @@ class IKPdb(object):
         :param path: path to normalize
         :return: normalized path
         """
-        MODE_ABSOLUTE = True
-        if MODE_ABSOLUTE:
-            _logger.p_info("iiiiiiiiiiiiiiiiiiiiiiiii", path)
-            return path
-        else:  # Relative mode
-            if path.startswith(self._CWD):
-                normalized_path = path[len(self._CWD):]
-            else:
-                normalized_path = path
+        if path.startswith(self._CWD):
+            normalized_path = path[len(self._CWD):]
+        else:
+            normalized_path = path
+        # For remote debugging preprend client CWD
+        if self._CLIENT_CWD:
+            normalized_path = os.path.join(self._CLIENT_CWD, normalized_path)
+        _logger.p_debug("normalize_path_out('%s') => %s", path, normalized_path)
         return normalized_path
 
 
