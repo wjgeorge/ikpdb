@@ -755,7 +755,6 @@ class IKPdb(object):
                     })
                     break
         else:
-
             a_var_name = None
             a_var_value = None
             if hasattr(o, '__dict__'):
@@ -784,7 +783,10 @@ class IKPdb(object):
         MAX_STRING_LEN_TO_RETURN = 487
         t_value = repr(value)
         r_value = "%s ... (truncated by ikpdb)" % (t_value[:MAX_STRING_LEN_TO_RETURN],) if len(t_value) > MAX_STRING_LEN_TO_RETURN else t_value
-        r_name = repr(name)
+        if isinstance(name, types.StringType):
+            r_name = name
+        else:
+            r_name = repr(name)
         if isinstance(value, types.StringType):
             r_type = "%s [%s]" % (IKPdbRepr(value), len(value),)
         else:
