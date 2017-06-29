@@ -26,6 +26,7 @@ import cStringIO
 import ctypes
 import iksettrace
 import cgi
+import codecs
 
 # For now ikpdb is a singleton
 ikpdb = None 
@@ -170,10 +171,11 @@ class IKPdbLogger(object):
     def _log(cls, domain, level, message, *args):
         ts = datetime.datetime.now().strftime('%H:%M:%S,%f')
         if level >= IKPdbLogger.DOMAINS[domain]:
+            args_ascii = tuple([codecs.decode(str(arg), 'ascii', 'replace') for arg in args])
             try:
-                string = message % args
+                string = message % args_ascii
             except:
-                string = message+"".join(map(lambda e: str(e), args))
+                string = message + "".join(args_ascii)
             print >>sys.stderr, IKPdbLogger.TEMPLATES[level/10] % (domain, ts, string,) 
 
 _logger = IKPdbLogger
@@ -584,7 +586,7 @@ class IKPdb(object):
         self.stop_at_first_statement = True if stop_at_first_statement else False
         
         # Some parameters that may need to become cli options
-        self.CGI_ESCAPE_EVALUATE_OUTPUT = True
+        self.CGI_ESCAPE_EVALUATE_OUTPUT = False
 
 
     def canonic(self, file_name):
@@ -855,7 +857,8 @@ class IKPdb(object):
 
         try: 
             result = eval(expression, global_vars, local_vars)
-            result_type = IKPdbRepr(result)
+            result_display_type = IKPdbRepr(result)
+            result_type = result_display_type
             result_value = repr(result)
         except SyntaxError:
             try:
@@ -865,50 +868,53 @@ class IKPdb(object):
                 sys.stdout = eval_stdout
                 exec(expression, global_vars, local_vars)
                 sys.stdout = sys_stdout
-                result_value = "<plaintext>%s" % eval_stdout.getvalue()                
-                result_type = "str"
+                result_value = eval_stdout.getvalue()
+                result_display_type = "<type 'ConsoleOutput'>"
+                result_type = result_display_type
                 result = result_value
             except Exception as e:
                 t, result = sys.exc_info()[:2]
                 if isinstance(t, str):
-                    result_type = t
+                    result_display_type = t
                 else: 
-                    result_type = str(t.__name__)
+                    result_display_type = str(t.__name__)
+                result_type = result_display_type
                 result_value = "%s: %s" % (result_type, result,)
         except:
             t, result = sys.exc_info()[:2]
             if isinstance(t, str):
-                result_type = t
+                result_display_type = t
             else: 
-                result_type = t.__name__
+                result_display_type = t.__name__
+            result_type = result_display_type
             result_value = "%s: %s" % (result_type, result,)
 
         if disable_break:
             IKBreakpoint.restore_breakpoints_state(breakpoints_backup)
 
-        _logger.e_debug("evaluate(%s) => result_value=%s, result_type=%s, result=%s", 
+        _logger.e_debug("evaluate(%s) => result_value=%s, result_type=%s, result_display_type=%s, result=%s", 
                         expression, 
                         result_value, 
                         result_type, 
+                        result_display_type, 
                         result)
-        if self.CGI_ESCAPE_EVALUATE_OUTPUT and not result_value.startswith('<plaintext>'):
-            result_value = cgi.escape(result_value)
         
         # We must check that result is json.dump compatible so that it can be sent back to client.
         try:
-            json.dumps(result_value)
+            result_value = json.dumps(result_value)
         except:
             t, result = sys.exc_info()[:2]
             if isinstance(t, str):
-                result_type = t
+                result_display_type = t
             else: 
-                result_type = t.__name__
-            result_value = "<plaintext>%s: IKPdb is unable to JSON encode result to send it to "\
+                result_display_type = t.__name__
+            result_type = "<type 'ConsoleOutput'>"
+            result_value = "%s: IKPdb is unable to JSON encode result to send it to "\
                            "debugging client.\n"\
                            "  This typically occurs if you try to print a string that cannot be"\
                            " decoded to 'UTF-8'.\n"\
                            "  You should be able to evaluate result and inspect it's content"\
-                           " by removing the print statement." % result_type
+                           " by removing the print statement." % result_display_type
         return result_value, result_type
 
     def let_variable(self, frame_id, var_name, expression_value):
