@@ -531,6 +531,7 @@ class IKBreakpoint(object):
         cls.update_active_breakpoint_flag()
         return
 
+
 class IKPdb(object):
     """ Main debugger class.
 
@@ -797,13 +798,13 @@ class IKPdb(object):
         """ dumps frames chain in a representation suitable for serialization 
            and remote (debugger) client usage.
         """
-        current_tread = threading.currentThread()
+        current_thread = threading.currentThread()
         frames = []
         frame_browser = frame
-        
         # Browse the frame chain as far as we can
         _logger.f_debug("dump_frames(), frame analysis:")
         spacer = ""
+
         while hasattr(frame_browser, 'f_back') and frame_browser.f_back != self.frame_beginning:
             spacer += "="
             _logger.f_debug("%s>frame = %s, frame.f_code = %s, frame.f_back = %s, "
@@ -817,20 +818,23 @@ class IKPdb(object):
             # Update local variables (User can use watch expressions for globals)
             locals_vars_list = self.extract_object_properties(frame_browser.f_locals,
                                                               limit_size=True)
+            globals_vars_list = self.extract_object_properties(frame_browser.f_globals,
+                                                              limit_size=True)
             # normalize path sent to debugging client
             file_path = self.normalize_path_out(frame_browser.f_code.co_filename)
 
-            frame_name = "%s() [%s]" % (frame_browser.f_code.co_name, current_tread.name,)
+            frame_name = "%s() [%s]" % (frame_browser.f_code.co_name, current_thread.name,)
             remote_frame = {
                 'id': id(frame_browser),
                 'name': frame_name,
                 'line_number': frame_browser.f_lineno,  # Warning 1 based
                 'file_path': file_path,
-                'thread': id(current_tread),
-                'f_locals': locals_vars_list
+                'thread': id(current_thread),
+                'f_locals': locals_vars_list + globals_vars_list
             }
             frames.append(remote_frame)
             frame_browser = frame_browser.f_back
+
         return frames        
 
     def evaluate(self, frame_id, expression, global_context=False, disable_break=False):
