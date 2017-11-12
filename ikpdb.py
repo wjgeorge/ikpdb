@@ -716,11 +716,11 @@ class IKPdb(object):
             for a_var_name in o:
                 a_var_value = o[a_var_name]
                 children_count = self.object_properties_count(a_var_value)
-                v_name, v_value, v_type = self.extract_name_value_type(a_var_name, 
-                                                                       a_var_value, 
-                                                                       limit_size=limit_size)
+                v_name, v_value, v_type, v_id = self.extract_name_value_type(a_var_name, 
+                                                                             a_var_value, 
+                                                                             limit_size=limit_size)
                 a_var_info = {
-                    'id': id(a_var_value),
+                    'id': v_id,
                     'name': v_name,
                     'type': "%s%s" % (v_type, " [%s]" % children_count if children_count else '',),
                     'value': v_value,
@@ -736,11 +736,11 @@ class IKPdb(object):
             do_truncate = len(o) > MAX_CHILDREN_TO_RETURN
             for idx, a_var_value in enumerate(o):
                 children_count = self.object_properties_count(a_var_value)
-                v_name, v_value, v_type = self.extract_name_value_type(idx, 
-                                                                       a_var_value, 
-                                                                       limit_size=limit_size)
+                v_name, v_value, v_type, v_id = self.extract_name_value_type(idx, 
+                                                                             a_var_value, 
+                                                                             limit_size=limit_size)
                 var_list.append({
-                    'id': id(a_var_value),
+                    'id': v_id,
                     'name': v_name,
                     'type': "%s%s" % (v_type, " [%s]" % children_count if children_count else '',),
                     'value': v_value,
@@ -755,6 +755,7 @@ class IKPdb(object):
                         'children_count': 0,
                     })
                     break
+                
         else:
             a_var_name = None
             a_var_value = None
@@ -765,11 +766,11 @@ class IKPdb(object):
                                                       types.MethodType, 
                                                       types.FunctionType,)):
                         children_count = self.object_properties_count(a_var_value)
-                        v_name, v_value, v_type = self.extract_name_value_type(a_var_name,
-                                                                               a_var_value, 
-                                                                               limit_size=limit_size)
+                        v_name, v_value, v_type, v_id = self.extract_name_value_type(a_var_name,
+                                                                                     a_var_value, 
+                                                                                     limit_size=limit_size)
                         var_list.append({
-                            'id': id(a_var_value),
+                            'id': v_id,
                             'name': v_name,
                             'type': "%s%s" % (v_type, " [%s]" % children_count if children_count else '',),
                             'value': v_value,
@@ -782,17 +783,37 @@ class IKPdb(object):
         returns name, truncated value and type (for str with size appended)
         """
         MAX_STRING_LEN_TO_RETURN = 487
+        
+        # Here we can add class / type specific processing
+        is_value_substituted = False  # True if value has been substituted
+        
+        # Eg. to replace Flash proxy with their value
+        #if hasattr(value, '__class__'):
+        #    if value.__class__.__module__ == 'werkzeug.local':
+        #        if value.__class__.__name__ == 'LocalProxy':
+        #            value = value._get_current_object()  # Pass through proxy to retreive object
+        #            is_value_substituted = True
+    
         t_value = repr(value)
         r_value = "%s ... (truncated by ikpdb)" % (t_value[:MAX_STRING_LEN_TO_RETURN],) if len(t_value) > MAX_STRING_LEN_TO_RETURN else t_value
+        
+        # Generate name
         if isinstance(name, types.StringType):
             r_name = name
         else:
             r_name = repr(name)
+        # for substituted vars we had a marker
+        if is_value_substituted:
+            r_name = "=> %s" % name
+        
+        # We limit length of strings
         if isinstance(value, types.StringType):
             r_type = "%s [%s]" % (IKPdbRepr(value), len(value),)
         else:
             r_type = IKPdbRepr(value)
-        return r_name, r_value, r_type
+        
+        # We generated id to make substituted value browsable
+        return r_name, r_value, r_type, id(value)
 
     def dump_frames(self, frame):
         """ dumps frames chain in a representation suitable for serialization 
