@@ -5,6 +5,7 @@ This document gives some *"Python"* and *"IKPdb"* specific information which
 supplement the :ref:`getting-started-with-cloud9` paragraph and 
 the `Cloud9 debugging documentation <https://docs.c9.io/docs/debugging-your-code>`_
 
+*Note* this module does not currently run under python 3
 
 Cloud9 concepts relative to code execution
 ------------------------------------------
